@@ -1,67 +1,49 @@
+require 'tempfile'
+
 module BashIt
   class ShellScript
+    MAIN_SCRIPT_FILE = File.join(File.expand_path(File.dirname(__FILE__)), 'bashit.sh')
+
+    attr_reader :source, :source_file
+
     def initialize(path)
       @source = File.read(path)
+      @source_file = path
       @stubs = {}
-      @stub_calls = {}
+      @stub_calls = Hash.new { [] }
     end
 
     def stub(fn, &body)
       @stubs[fn.to_sym] = body || lambda { '' }
-      @stub_calls = {}
     end
 
-    def to_s()
-      """
-        # bashit
-        # ---------------------------------------------------------------------
-        function __bashit_write() {
-          builtin echo 1>&5 $@
-        }
-
-        function __bashit_read() {
-          builtin read -u 4 $@
-        }
-
-        # bashit: stubs
-        # ---------------------------------------------------------------------
-        #{@stubs.keys.map(&method(:define_stub)).join("\n")}
-        # ---------------------------------------------------------------------
-      """.strip + "\n" + @source
-    end
-
-    def eval
-      `#{to_s}`
+    def to_s
+      ". '#{ShellScript::MAIN_SCRIPT_FILE}'" + "\n" +
+      @stubs.keys.map do |name|
+        "function #{name}()(__bashit_run_stub '#{name}' $@)"
+      end.join("\n") + "\n" +
+      @source
     end
 
     def calls_for(name)
     end
 
     def stubbed(name, args)
-      unless @stubs.key?(name.to_sym)
-        fail "#{name} is not stubbed"
-      end
+      fail "#{name} is not stubbed" unless @stubs.key?(name.to_sym)
 
       @stubs[name.to_sym][args]
+    end
+
+    def track_call(name, args)
+      fail "#{name} is not stubbed" unless @stubs.key?(name.to_sym)
+
+      @stub_calls[name.to_sym] << args
     end
 
     private
 
     def define_stub(name)
-      """
-        function #{name}() {
-          __bashit_write \"#{name} $@\"
-          __bashit_write \"stub>\"
-
-          local __body
-
-          __bashit_read  __body
-          __bashit_write \"stub-body>\"
-
-          $__body
-        }
-      """
+      "function #{name}()(__bashit_run_stub \"#{name}\" $@)"
     end
   end
-
 end

@@ -1,0 +1,3 @@
+echo "a sourced: $1"
+
+return 1

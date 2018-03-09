@@ -1,116 +1,67 @@
 require 'open3'
 require 'expect'
 require 'tempfile'
+require_relative './fd'
+require_relative './open3'
+require_relative './noisy_thread'
 
 module BashIt
   class ShellScriptEvaluator
-    class NoisyThread < Thread
-      def initialize(**)
-        super.tap do
-          self.abort_on_exception = true
-        end
-      end
-    end
-
-    module FD
-      def self.readable?(fd)
-        begin
-          !fd.closed? && !fd.eof?
-        rescue IOError => e
-          if e.to_s == "stream closed"
-            return false
-          else
-            throw
-          end
-        end
-      end
-
-      def self.poll(fd, &block)
-        while readable?(fd) do
-          begin
-            yield fd
-            sleep 0.1
-          rescue IO::WaitReadable
-            IO.select([ fd ])
-            retry
-          rescue IOError => e
-            STDERR.puts "[err] unexpected IOError #{e}"
-            break
-          rescue EOFError
-            break
-          end
-        end
-      end
-    end
-
     def eval(script)
       file = Tempfile.new('bash_it')
       file.write(script.to_s)
       file.close
 
-      self.class.popenX('/usr/bin/env', 'bash', file.path) do |input, output, error, r2b, b2r, wait_thr|
-        workers = [
-          NoisyThread.new do
-            FD.poll(output) do
-              STDOUT.write output.read_nonblock(4096)
-            end
-          end,
+      bus_file = Tempfile.new("bashit_#{File.basename(script.source_file).gsub(/\W+/, '_')}")
+      bus_file.close
 
-          NoisyThread.new do
-            FD.poll(error) do
-              STDERR.write error.read_nonblock(4096)
-            end
-          end,
+      BashIt::Open3.popen3X('/usr/bin/env', 'bash', file.path) do |input, output, error, r2b, b2r, wait_thr|
+        workers = []
 
-          NoisyThread.new do
-            FD.poll(b2r) do
-              respond_to_prompts(r2b, b2r, script)
-            end
-          end,
-        ]
+        # transmit stdout
+        workers << NoisyThread.new do
+          FD.poll(output) do
+            STDOUT.write output.read_nonblock(4096)
+          end
+        end
 
+        # transmit stderr
+        workers << NoisyThread.new do
+          FD.poll(error) do
+            STDERR.write error.read_nonblock(4096)
+          end
+        end
+
+        # accept & respond to prompts
+        workers << NoisyThread.new do
+          FD.poll(b2r) do
+            respond_to_prompts(r2b, b2r, script, bus_file)
+          end
+        end
+
+        # wait for the script to finish executing
         wait_thr.join
 
+        # clean up
         try_hard "close r2b" do r2b.close end
         try_hard "close b2r" do b2r.close end
         try_hard "shut off workers" do workers.map(&:join) end
         try_hard "kill them all" do workers.map(&:kill) end
+        try_hard "clean up temp bus file" do bus_file.unlink end
+        try_hard "clean up source file" do file.unlink end
+
+        wait_thr.value.success?
       end
     end
 
     private
 
-    def self.popenX(*cmd, **opts, &block)
-      in_r, in_w = IO.pipe
-      opts[:in] = in_r
-
-      out_r, out_w = IO.pipe
-      opts[:out] = out_w
-
-      err_r, err_w = IO.pipe
-      opts[:err] = err_w
-
-      b2r_r, b2r_w = IO.pipe
-      r2b_r, r2b_w = IO.pipe
-
-      opts[4] = r2b_r
-      opts[5] = b2r_w
-
-      Open3.send(:popen_run,
-        cmd,
-        opts,
-        [in_r, out_w, err_w, r2b_r, b2r_w], # child_io
-        [in_w, out_r, err_r, r2b_w, b2r_r], # parent_io
-        &block
-      )
-    end
-
-    def respond_to_prompts(fd_in, fd_out, script)
-      fd_out.expect("stub>", 1) do |result|
+    def respond_to_prompts(fd_in, fd_out, script, bus_file)
+      fd_out.expect("</bashit::stub>", 1) do |result|
         break if result.nil?
 
         prompts = result[0].split("\n").reject(&:empty?).reduce([]) do |acc, line|
-          if line == "stub>"
+          if line == "</bashit::stub>"
             if acc[-1]
               acc[-1][:type] = :stub
             else
@@ -129,11 +80,16 @@ module BashIt
             routine_len = buffer.index(' ')
             routine = buffer[0..routine_len - 1]
             args    = buffer[routine_len + 1..-1]
+            body    = script.stubbed(routine, args)
 
-            fd_in.puts script.stubbed(routine, args)
+            File.write(bus_file, body)
+
+            fd_in.puts bus_file.path
             fd_in.flush
 
-            fd_out.expect('stub-body>', 1)
+            fd_out.expect('</bashit::stub-body>', 1)
+
+            script.track_call(routine, args)
           when :unknown
             STDERR.write "[err] unexpected message from bash: #{buffer}"
           end
