@@ -7,9 +7,9 @@ else
   # source ~/.bash_profile
 fi
 
-# if declare -f -F rbenv >/dev/null
-# then
-#   echo "rbenv installed"
-# else
-#   echo "rbenv is NOT installed"
-# fi
+if declare -f -F rbenv >/dev/null
+then
+  echo "rbenv installed"
+else
+  echo "rbenv is NOT installed"
+fi
