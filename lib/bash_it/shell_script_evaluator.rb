@@ -14,17 +14,26 @@ module BashIt
 
     module FD
       def self.readable?(fd)
-        !fd.closed? && !fd.eof?
+        begin
+          !fd.closed? && !fd.eof?
+        rescue IOError => e
+          if e.to_s == "stream closed"
+            return false
+          else
+            throw
+          end
+        end
       end
 
       def self.poll(fd, &block)
         while readable?(fd) do
           begin
             yield fd
+            sleep 0.1
           rescue IO::WaitReadable
             IO.select([ fd ])
             retry
-          rescue IO::Error => e
+          rescue IOError => e
             STDERR.puts "[err] unexpected IOError #{e}"
             break
           rescue EOFError
@@ -40,25 +49,32 @@ module BashIt
       file.close
 
       self.class.popenX('/usr/bin/env', 'bash', file.path) do |input, output, error, r2b, b2r, wait_thr|
-        NoisyThread.new do
-          FD.poll(output) do
-            STDOUT.write output.read_nonblock(4096)
-          end
-        end
+        workers = [
+          NoisyThread.new do
+            FD.poll(output) do
+              STDOUT.write output.read_nonblock(4096)
+            end
+          end,
 
-        NoisyThread.new do
-          FD.poll(error) do
-            STDERR.write error.read_nonblock(4096)
-          end
-        end
+          NoisyThread.new do
+            FD.poll(error) do
+              STDERR.write error.read_nonblock(4096)
+            end
+          end,
 
-        NoisyThread.new do
-          FD.poll(b2r) do
-            respond_to_prompts(r2b, b2r, script)
-          end
-        end
+          NoisyThread.new do
+            FD.poll(b2r) do
+              respond_to_prompts(r2b, b2r, script)
+            end
+          end,
+        ]
 
         wait_thr.join
+
+        try_hard "close r2b" do r2b.close end
+        try_hard "close b2r" do b2r.close end
+        try_hard "shut off workers" do workers.map(&:join) end
+        try_hard "kill them all" do workers.map(&:kill) end
       end
     end
 
@@ -110,9 +126,11 @@ module BashIt
         prompts.each do |type:, buffer:|
           case type
           when :stub
-            routine, *args = buffer.split(' ')
+            routine_len = buffer.index(' ')
+            routine = buffer[0..routine_len - 1]
+            args    = buffer[routine_len + 1..-1]
 
-            fd_in.puts script.stubbed(routine)
+            fd_in.puts script.stubbed(routine, args)
             fd_in.flush
 
             fd_out.expect('stub-body>', 1)
@@ -120,6 +138,15 @@ module BashIt
             STDERR.write "[err] unexpected message from bash: #{buffer}"
           end
         end
+      end
+    end
+
+    def try_hard(what)
+      begin
+        yield
+      rescue StandardError => e
+        puts what
+        puts e
       end
     end
   end
