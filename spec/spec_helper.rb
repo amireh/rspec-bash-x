@@ -27,6 +27,7 @@ RSpec.configure do |config|
 
   # RSpec::Mocks::Matchers.extend BashIt::RSpec::Matchers
   config.include BashIt::RSpec::Matchers
+  config.include BashIt::RSpec::Support
   config.include BashIt::Support
 
   # rspec-expectations config goes here. You can use an alternate

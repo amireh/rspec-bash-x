@@ -4,10 +4,14 @@ module BashIt
   class ShellScript
     MAIN_SCRIPT_FILE = File.join(File.expand_path(File.dirname(__FILE__)), 'bashit.sh')
 
+    def self.load(path)
+      new(File.read(path))
+    end
+
     attr_reader :source, :source_file
 
-    def initialize(path)
-      @source = File.read(path)
+    def initialize(source, path = '<<memory>>')
+      @source = source
       @source_file = path
       @stubs = {}
       @stub_calls = Hash.new { |h, k| h[k] = [] }
@@ -43,12 +47,6 @@ module BashIt
       fail "#{name} is not stubbed" unless @stubs.key?(name.to_sym)
 
       @stub_calls[name.to_sym].push(args)
-    end
-
-    private
-
-    def define_stub(name)
-      "function #{name}()(__bashit_run_stub \"#{name}\" $@)"
     end
   end
 end

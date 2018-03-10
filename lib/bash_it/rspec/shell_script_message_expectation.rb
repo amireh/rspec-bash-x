@@ -9,19 +9,13 @@ module BashIt
         @spec, @error_generator, @backtrace_line = spec, error_generator, backtrace_line
       end
 
-      def invoke(*_)
-        puts "hello???"
-        @received = true
-        @response
+      def invoke(*)
       end
 
-      # def matches?(message, *_)
-      #   puts "hello???"
-      #   @message == message.to_sym
-      # end
+      def matches?(*)
+      end
 
-      def called_max_times?
-        puts "hello???"
+      def called_max_times?(*)
         false
       end
 
@@ -54,7 +48,7 @@ module BashIt
         end
       end
 
-      def unadvise(_)
+      def unadvise(*)
       end
     end
   end

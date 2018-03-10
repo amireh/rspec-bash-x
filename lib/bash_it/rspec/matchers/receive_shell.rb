@@ -4,7 +4,7 @@ require 'rspec/mocks/matchers/expectation_customization'
 module BashIt
   module RSpec
     module Matchers
-      def receive_shell(*args)
+      def call(*args)
         ReceiveShell.new(*args)
       end
 
@@ -44,6 +44,22 @@ module BashIt
 
         def at_most(n)
           tap { @spec[:call_count] = [:at_most, n] }
+        end
+
+        def never
+          exactly(0)
+        end
+
+        def once
+          exactly(1)
+        end
+
+        def twice
+          exactly(2)
+        end
+
+        def thrice
+          exactly(3)
         end
 
         def times
