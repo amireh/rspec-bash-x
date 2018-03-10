@@ -1,10 +1,10 @@
 require 'bash_it'
 
-describe BashIt do
-  subject { BashIt::ShellScript.new('echo "Hello World!"') }
+describe BashIt, type: :bash do
+  subject { BashIt::Script.new('echo "Hello World!"') }
 
   it 'can hijack builtin functions' do
-    expect(subject).to call(:echo).once.and_yield { |args|
+    expect(subject).to receive(:echo).once.and_yield { |args|
       """
         builtin echo \"> hijacked!\"
         builtin echo \">> #{args}\"
@@ -15,13 +15,13 @@ describe BashIt do
   end
 end
 
-describe 'install-nvm' do
-  subject { BashIt::ShellScript.load(fixture_path("install-nvm.sh")) }
+describe 'install-nvm', type: :bash do
+  subject { BashIt::Script.load(fixture_path("install-nvm.sh")) }
 
   context 'when nvm is already installed...' do
     it 'does nothing' do
-      expect(subject).to call(:declare).and_return 0
-      expect(subject).to call(:curl).never
+      expect(subject).to receive(:declare).and_return 0
+      expect(subject).to receive(:curl).never
 
       run_script subject
     end
@@ -29,8 +29,8 @@ describe 'install-nvm' do
 
   context 'when nvm is not installed...' do
     it 'installs it' do
-      expect(subject).to call(:declare).exactly(2).times.and_return 1
-      expect(subject).to call(:curl).once
+      expect(subject).to receive(:declare).exactly(2).times.and_return 1
+      expect(subject).to receive(:curl).once
 
       run_script subject
     end

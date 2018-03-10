@@ -27,8 +27,8 @@ RSpec.configure do |config|
 
   # RSpec::Mocks::Matchers.extend BashIt::RSpec::Matchers
   config.include BashIt::RSpec::Matchers
-  config.include BashIt::RSpec::Support
-  config.include BashIt::Support
+  config.include BashIt::RSpec::Support, type: :bash
+  config.include BashIt::Support, type: :bash
 
   # rspec-expectations config goes here. You can use an alternate
   # assertion/expectation library such as wrong or the stdlib/minitest

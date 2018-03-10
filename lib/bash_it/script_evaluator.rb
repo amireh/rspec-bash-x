@@ -6,7 +6,7 @@ require_relative './open3'
 require_relative './noisy_thread'
 
 module BashIt
-  class ShellScriptEvaluator
+  class ScriptEvaluator
     def eval(script)
       file = Tempfile.new('bash_it')
       file.write(script.to_s)

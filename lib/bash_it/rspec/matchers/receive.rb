@@ -4,12 +4,12 @@ require 'rspec/mocks/matchers/expectation_customization'
 module BashIt
   module RSpec
     module Matchers
-      def call(*args)
-        ReceiveShell.new(*args)
+      def receive(*args)
+        Receive.new(*args)
       end
 
       # @private
-      class ReceiveShell
+      class Receive
         def initialize(routine)
           @spec = {
             body: nil,
@@ -19,11 +19,11 @@ module BashIt
         end
 
         def name
-          "receive_shell"
+          "receive"
         end
 
         def description
-          @describable.description_for("receive_shell")
+          @describable.description_for(name)
         end
 
         def and_return(code)
@@ -80,7 +80,7 @@ module BashIt
 
         def setup_mock_proxy_method_substitute(subject, method, block)
           proxy = ::RSpec::Mocks.space.proxy_for(subject)
-          proxy.__send__(method, @spec, &block) # => ShellScriptMessageExpectation
+          proxy.__send__(method, @spec, &block) # => ScriptMessageExpectation
         end
       end
     end

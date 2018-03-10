@@ -3,11 +3,11 @@ require 'rspec/support/caller_filter'
 require 'rspec/mocks'
 require 'rspec/mocks/proxy'
 
-require_relative './shell_script_message_expectation'
+require_relative './script_message_expectation'
 
 module BashIt
   module RSpec
-    class ShellScriptProxy < ::RSpec::Mocks::Proxy
+    class ScriptProxy < ::RSpec::Mocks::Proxy
       def initialize(*)
         @expectations = []
         super
@@ -29,7 +29,7 @@ module BashIt
 
         object.stub(spec[:routine], &spec[:body])
 
-        @expectations << ShellScriptMessageExpectation.new(
+        @expectations << ScriptMessageExpectation.new(
           spec,
           @error_generator,
           location

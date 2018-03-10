@@ -4,7 +4,7 @@ require 'rspec/mocks/matchers/expectation_customization'
 
 module BashIt
   module RSpec
-    class ShellScriptMessageExpectation
+    class ScriptMessageExpectation
       def initialize(spec, error_generator, backtrace_line=nil)
         @spec, @error_generator, @backtrace_line = spec, error_generator, backtrace_line
       end

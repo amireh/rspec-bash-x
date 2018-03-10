@@ -1,8 +1,8 @@
 require 'tempfile'
 
 module BashIt
-  class ShellScript
-    MAIN_SCRIPT_FILE = File.join(File.expand_path(File.dirname(__FILE__)), 'bashit.sh')
+  class Script
+    MAIN_SCRIPT_FILE = File.expand_path('../../bashit.sh', __FILE__)
 
     def self.load(path)
       new(File.read(path))
@@ -22,7 +22,7 @@ module BashIt
     end
 
     def to_s
-      ". '#{ShellScript::MAIN_SCRIPT_FILE}'" + "\n" +
+      ". '#{Script::MAIN_SCRIPT_FILE}'" + "\n" +
       @stubs.keys.map do |name|
         "function #{name}()(__bashit_run_stub '#{name}' $@)"
       end.join("\n") + "\n" +
@@ -30,7 +30,7 @@ module BashIt
     end
 
     def inspect
-      "ShellScript(\"#{File.basename(@source_file)}\")"
+      "Script(\"#{File.basename(@source_file)}\")"
     end
 
     def calls_for(name)
