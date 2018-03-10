@@ -2,18 +2,17 @@ require 'bash_it'
 
 describe 'install-nvm' do
   it 'works' do
-    script = BashIt::ShellScript.new(Support.fixture_path("install-nvm.sh"))
-    script.stub("declare") { "return 1" }
-    script.stub("echo") { |args|
+    script = BashIt::ShellScript.new(fixture_path("install-nvm.sh"))
+
+    expect(script).to receive_shell(:declare).exactly(2).times.and_return 1
+    expect(script).to receive_shell(:echo).and_yield { |args|
       """
-        builtin echo #{args}
-        return 1
+        builtin echo \">> #{args}\"
+        return 0
       """
     }
 
     evaluator = BashIt::ShellScriptEvaluator.new
-    expect(
-      evaluator.eval(script)
-    ).to eq(false)
+    evaluator.eval(script)
   end
 end

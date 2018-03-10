@@ -10,11 +10,11 @@ module BashIt
       @source = File.read(path)
       @source_file = path
       @stubs = {}
-      @stub_calls = Hash.new { [] }
+      @stub_calls = Hash.new { |h, k| h[k] = [] }
     end
 
     def stub(fn, &body)
-      @stubs[fn.to_sym] = body || lambda { '' }
+      @stubs[fn.to_sym] = body || lambda { |*| '' }
     end
 
     def to_s
@@ -25,7 +25,12 @@ module BashIt
       @source
     end
 
+    def inspect
+      "ShellScript(\"#{File.basename(@source_file)}\")"
+    end
+
     def calls_for(name)
+      @stub_calls[name.to_sym]
     end
 
     def stubbed(name, args)
@@ -37,7 +42,7 @@ module BashIt
     def track_call(name, args)
       fail "#{name} is not stubbed" unless @stubs.key?(name.to_sym)
 
-      @stub_calls[name.to_sym] << args
+      @stub_calls[name.to_sym].push(args)
     end
 
     private

@@ -17,6 +17,18 @@
 #
 # See http://rubydoc.info/gems/rspec-core/RSpec/Core/Configuration
 RSpec.configure do |config|
+  require 'bash_it'
+
+  module BashIt::Support
+    def fixture_path(*path)
+      File.join(File.expand_path(File.dirname(__FILE__)), 'fixtures', *path)
+    end
+  end
+
+  # RSpec::Mocks::Matchers.extend BashIt::RSpec::Matchers
+  config.include BashIt::RSpec::Matchers
+  config.include BashIt::Support
+
   # rspec-expectations config goes here. You can use an alternate
   # assertion/expectation library such as wrong or the stdlib/minitest
   # assertions if you prefer.
@@ -93,10 +105,4 @@ RSpec.configure do |config|
   # as the one that triggered the failure.
   Kernel.srand config.seed
 =end
-
-  module Support
-    def self.fixture_path(*path)
-      File.join(File.expand_path(File.dirname(__FILE__)), 'fixtures', *path)
-    end
-  end
 end
