@@ -7,6 +7,8 @@ require_relative './noisy_thread'
 
 module BashIt
   class ScriptEvaluator
+    CONDITIONAL_EXPR_STUB = 'conditional_expr'.freeze
+
     def eval(script)
       file = Tempfile.new('bash_it')
       file.write(script.to_s)
@@ -63,7 +65,7 @@ module BashIt
         prompts = result[0].split("\n").reject(&:empty?).reduce([]) do |acc, line|
           if line == "</bashit::stub>"
             if acc[-1]
-              acc[-1][:type] = :stub
+              acc[-1].merge!(classify_stub(acc[-1][:buffer]))
             else
               puts "[WARN] cannot match stub entry: #{line} => #{acc}"
             end
@@ -74,12 +76,20 @@ module BashIt
           acc
         end
 
-        prompts.each do |type:, buffer:|
+        prompts.each do |type:, buffer:, **stub|
           case type
-          when :stub
-            routine_len = buffer.index(' ')
-            routine = buffer[0..routine_len - 1]
-            args    = buffer[routine_len + 1..-1]
+          when :conditional
+            File.write(bus_file, script.stubbed_conditional(stub[:expr], stub[:args]))
+
+            fd_in.puts bus_file.path
+            fd_in.flush
+
+            fd_out.expect('</bashit::stub-body>', 1)
+
+            script.track_conditional_call(stub[:expr], stub[:args])
+          when :function
+            routine = stub[:name]
+            args    = stub[:args]
             body    = script.stubbed(routine, args)
 
             File.write(bus_file, body)
@@ -95,6 +105,33 @@ module BashIt
           end
         end
       end
+    end
+
+    def classify_stub(command)
+      identifier, args = split_by_first_space(command)
+
+      case identifier
+      when CONDITIONAL_EXPR_STUB
+        expr, expr_args = split_by_first_space(args)
+
+        {
+          type: :conditional,
+          expr: expr,
+          args: expr_args,
+        }
+      else
+        {
+          type: :function,
+          name: identifier,
+          args: args,
+        }
+      end
+    end
+
+    def split_by_first_space(string)
+      delim = string.index(' ')
+
+      [ string[0..delim - 1], string[delim + 1..-1] ]
     end
 
     def try_hard(what)

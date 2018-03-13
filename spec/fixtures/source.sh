@@ -1,7 +1,5 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 
-function speak() {
-  . "spec/fixtures/a" foo
-}
+speak()(. "spec/fixtures/a" foo)
 
 speak

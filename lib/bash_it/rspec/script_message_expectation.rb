@@ -5,8 +5,11 @@ require 'rspec/mocks/matchers/expectation_customization'
 module BashIt
   module RSpec
     class ScriptMessageExpectation
-      def initialize(spec, error_generator, backtrace_line=nil)
-        @spec, @error_generator, @backtrace_line = spec, error_generator, backtrace_line
+      def initialize(double, display_name, error_generator, backtrace_line=nil)
+        @double = double
+        @display_name = display_name
+        @error_generator = error_generator
+        @backtrace_line = backtrace_line
       end
 
       def invoke(*)
@@ -20,12 +23,12 @@ module BashIt
       end
 
       def verify_messages_received(script)
-        type, expected_count = *@spec[:call_count]
-        actual_count = script.calls_for(@spec[:routine]).count
+        type, expected_count = *@double.expected_call_count
+        actual_count = @double.call_count(script)
 
         report = lambda {
           @error_generator.raise_expectation_error(
-            @spec[:routine],
+            @display_name,
             expected_count,
             ::RSpec::Mocks::ArgumentListMatcher::MATCH_ALL,
             actual_count,
@@ -34,7 +37,6 @@ module BashIt
             @backtrace_line
           )
         }
-
 
         case type
         when :at_least

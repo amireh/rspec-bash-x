@@ -24,13 +24,14 @@ module BashIt
         end
       end
 
-      def add_message_expectation(spec, opts=DEFAULT_MESSAGE_EXPECTATION_OPTS, &block)
+      def add_message_expectation(double, display_name, opts=DEFAULT_MESSAGE_EXPECTATION_OPTS, &block)
         location = opts.fetch(:expected_from) { ::RSpec::CallerFilter.first_non_rspec_line }
 
-        object.stub(spec[:routine], &spec[:body])
+        double.apply(object)
 
         @expectations << ScriptMessageExpectation.new(
-          spec,
+          double,
+          display_name,
           @error_generator,
           location
         )

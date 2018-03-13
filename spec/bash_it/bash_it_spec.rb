@@ -36,3 +36,21 @@ describe 'install-nvm', type: :bash do
     end
   end
 end
+
+describe 'if.sh', type: :bash do
+  subject { BashIt::Script.load(fixture_path("if.sh")) }
+
+  it 'creates "setenv.sh" if it does not exist' do
+    allow(subject).to receive('source').with_args('setenv.sh').and_return 0
+    expect(subject).to test('-e').with_args('setenv.sh').twice.and_return 1
+
+    run_script subject
+  end
+
+  it 'sources "setenv.sh" if it exists' do
+    expect(subject).to receive('source').with_args('setenv.sh').once.and_return 0
+    allow(subject).to test('-e').with_args('setenv.sh').and_return 1
+
+    run_script subject
+  end
+end

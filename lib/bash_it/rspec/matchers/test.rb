@@ -5,10 +5,10 @@ module BashIt
   module RSpec
     module Matchers
       # @private
-      class Receive < BaseMatcher
-        def initialize(routine)
-          @double = Doubles::FunctionDouble.new(routine)
-          @display_name = "receive"
+      class Test < BaseMatcher
+        def initialize(expr)
+          @double = Doubles::ConditionalDouble.new(expr)
+          @display_name = "test(#{expr})"
 
           super()
         end
