@@ -43,6 +43,10 @@ module RSpec
             tap { @double.expected_call_count = [:at_most, n] }
           end
 
+          def and_call_original
+            tap { @double.call_original = true }
+          end
+
           def never
             exactly(0)
           end

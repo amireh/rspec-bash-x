@@ -10,7 +10,7 @@ module RSpec
           end
 
           def apply(script)
-            script.stub(@routine, &body)
+            script.stub(@routine, call_original: call_original, &body)
           end
 
           def call_count(script)
@@ -19,6 +19,10 @@ module RSpec
 
           def call_args(script)
             script.calls_for(@routine).map { |x| x[:args] }
+          end
+
+          def to_s
+            @routine.to_s
           end
         end
       end

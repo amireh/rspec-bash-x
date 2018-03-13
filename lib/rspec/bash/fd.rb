@@ -22,8 +22,11 @@ module RSpec
             IO.select([ fd ])
             retry
           rescue IOError => e
-            STDERR.puts "[err] unexpected IOError #{e}"
-            break
+            if e.to_s == "stream closed"
+              break
+            else
+              throw
+            end
           rescue EOFError
             break
           end

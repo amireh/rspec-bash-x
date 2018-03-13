@@ -38,7 +38,7 @@ module RSpec
               ::RSpec::Mocks::ArgumentListMatcher::MATCH_ALL,
               actual_count,
               nil,
-              [],
+              Array(@double.to_s),
               @backtrace_line
             )
           }

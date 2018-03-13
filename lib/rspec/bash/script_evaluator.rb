@@ -18,31 +18,46 @@ module RSpec
       # @param [Number?] options.read_fd
       # @param [Number?] options.write_fd
       # @param [Number?] options.throttle
-      def eval(script, **opts)
-        file = Tempfile.new('bash_it')
+      def eval(script, args = [], **opts)
+        file = Tempfile.new('rspec_bash')
         file.write(script.to_s)
         file.close
+        verbose = opts.fetch(:verbose, Bash.configuration.verbose)
 
-        bus_file = Tempfile.new("bash_it#{File.basename(script.source_file).gsub(/\W+/, '_')}")
+        bus_file = Tempfile.new("rspec_bash#{File.basename(script.source_file).gsub(/\W+/, '_')}")
         bus_file.close
 
-        Bash::Open3.popen3X('/usr/bin/env', 'bash', file.path, {
+        Bash::Open3.popen3X([ '/usr/bin/env', 'bash', file.path ].concat(args), {
           read_fd: opts.fetch(:read_fd, Bash.configuration.read_fd),
           write_fd: opts.fetch(:write_fd, Bash.configuration.write_fd)
-        }) do |input, output, error, r2b, b2r, wait_thr|
+        }) do |input, stdout, stderr, r2b, b2r, wait_thr|
           workers = []
 
           # transmit stdout
           workers << NoisyThread.new do
-            FD.poll(output, throttle: Bash.configuration.throttle) do
-              STDOUT.write output.read_nonblock(BLOCK_SIZE)
+            FD.poll(stdout, throttle: Bash.configuration.throttle) do
+              buffer = stdout.read_nonblock(BLOCK_SIZE)
+
+              script.stdout << buffer
+
+              if verbose
+                STDOUT.write buffer
+                STDOUT.flush
+              end
             end
           end
 
           # transmit stderr
           workers << NoisyThread.new do
-            FD.poll(error, throttle: Bash.configuration.throttle) do
-              STDERR.write error.read_nonblock(BLOCK_SIZE)
+            FD.poll(stderr, throttle: Bash.configuration.throttle) do
+              buffer = stderr.read_nonblock(BLOCK_SIZE)
+
+              script.stderr << buffer
+
+              if verbose
+                STDERR.write buffer
+                STDERR.flush
+              end
             end
           end
 
@@ -63,6 +78,8 @@ module RSpec
           try_hard "kill them all" do workers.map(&:kill) end
           try_hard "clean up temp bus file" do bus_file.unlink end
           try_hard "clean up source file" do file.unlink end
+
+          script.track_exit_code wait_thr.value.exitstatus
 
           wait_thr.value.success?
         end
@@ -91,6 +108,10 @@ module RSpec
           prompts.each do |type:, buffer:, **stub|
             case type
             when :conditional
+              if !script.has_conditional_stubs? && !Bash.configuration.allow_unstubbed_conditionals
+                fail "conditional expressions are not stubbed!"
+              end
+
               File.write(bus_file, script.stubbed_conditional(stub[:expr], stub[:args]))
 
               fd_in.puts bus_file.path
@@ -142,6 +163,14 @@ module RSpec
 
       def split_by_first_space(string)
         delim = string.index(' ')
+
+        # single-argument expressions, this usually happens in unary tests
+        # where the argument evaluates to an empty string, a la:
+        #
+        #     test -z "${string}" => "-z"
+        if delim.nil?
+          return [ string, '' ]
+        end
 
         [ string[0..delim - 1], string[delim + 1..-1] ]
       end

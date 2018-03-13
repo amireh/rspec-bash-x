@@ -13,6 +13,15 @@ RSpec.describe RSpec::Bash, type: :bash do
   end
 end
 
+RSpec.describe RSpec::Bash, type: :bash do
+  subject { RSpec::Bash::Script.new('echo "one=$1 two=$2"') }
+
+  it 'can pass args' do
+    run_script subject, [ 'x', 'Y' ]
+    expect(subject.stdout).to eq("one=x two=Y\n")
+  end
+end
+
 RSpec.describe 'install-nvm', type: :bash do
   subject { RSpec::Bash::Script.load(fixture_path("install-nvm.sh")) }
 

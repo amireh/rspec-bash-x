@@ -7,7 +7,9 @@ module RSpec
       # communication between the spawned process and ruby
       #
       # the descriptors are available as 62 (child read) and 63 (child write)
-      def self.popen3X(*cmd, read_fd: 62, write_fd: 63, &block)
+      #
+      # @param [Array<String>] cmd
+      def self.popen3X(cmd, read_fd: 62, write_fd: 63, &block)
         in_r, in_w = IO.pipe
         out_r, out_w = IO.pipe
         err_r, err_w = IO.pipe

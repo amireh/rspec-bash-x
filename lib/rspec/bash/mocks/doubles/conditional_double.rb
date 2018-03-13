@@ -20,6 +20,10 @@ module RSpec
           def call_args(script)
             script.conditional_calls_for(@expr).map { |x| x[:args] }
           end
+
+          def to_s
+            @expr.to_s
+          end
         end
       end
     end
