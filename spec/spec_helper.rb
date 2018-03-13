@@ -17,18 +17,17 @@
 #
 # See http://rubydoc.info/gems/rspec-core/RSpec/Core/Configuration
 RSpec.configure do |config|
-  require 'bash_it'
+  require 'rspec/bash'
 
-  module BashIt::Support
+  module RSpecBashSpecSupport
     def fixture_path(*path)
       File.join(File.expand_path(File.dirname(__FILE__)), 'fixtures', *path)
     end
   end
 
-  # RSpec::Mocks::Matchers.extend BashIt::RSpec::Matchers
-  config.include BashIt::RSpec::Matchers
-  config.include BashIt::RSpec::Support, type: :bash
-  config.include BashIt::Support, type: :bash
+  config.include RSpec::Bash::Mocks::Matchers, type: :bash
+  config.include RSpec::Bash::Support, type: :bash
+  config.include RSpecBashSpecSupport, type: :bash
 
   # rspec-expectations config goes here. You can use an alternate
   # assertion/expectation library such as wrong or the stdlib/minitest
@@ -53,8 +52,8 @@ RSpec.configure do |config|
     mocks.verify_partial_doubles = true
   end
 
-  BashIt.configure do |bash_it|
-    bash_it.throttle = 0
+  RSpec::Bash.configure do |bash|
+    bash.throttle = 0
   end
 
   # The settings below are suggested to provide a good initial experience
@@ -70,7 +69,7 @@ RSpec.configure do |config|
   # Allows RSpec to persist some state between runs in order to support
   # the `--only-failures` and `--next-failure` CLI options. We recommend
   # you configure your source control system to ignore this file.
-  config.example_status_persistence_file_path = "spec/examples.txt"
+  # config.example_status_persistence_file_path = "spec/examples.txt"
 
   # Limits the available syntax to the non-monkey patched syntax that is
   # recommended. For more details, see:

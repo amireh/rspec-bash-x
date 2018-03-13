@@ -1,7 +1,5 @@
-require 'bash_it'
-
-RSpec.describe BashIt, type: :bash do
-  subject { BashIt::Script.new('echo "Hello World!"') }
+RSpec.describe RSpec::Bash, type: :bash do
+  subject { RSpec::Bash::Script.new('echo "Hello World!"') }
 
   it 'can hijack builtin functions' do
     expect(subject).to receive(:echo).once.and_yield { |args|
@@ -16,7 +14,7 @@ RSpec.describe BashIt, type: :bash do
 end
 
 RSpec.describe 'install-nvm', type: :bash do
-  subject { BashIt::Script.load(fixture_path("install-nvm.sh")) }
+  subject { RSpec::Bash::Script.load(fixture_path("install-nvm.sh")) }
 
   context 'when nvm is already installed...' do
     it 'does nothing' do
@@ -38,7 +36,7 @@ RSpec.describe 'install-nvm', type: :bash do
 end
 
 RSpec.describe 'if.sh', type: :bash do
-  subject { BashIt::Script.load(fixture_path("if.sh")) }
+  subject { RSpec::Bash::Script.load(fixture_path("if.sh")) }
 
   it 'creates "setenv.sh" if it does not exist' do
     allow(subject).to receive('source').with_args('setenv.sh').and_return 0
