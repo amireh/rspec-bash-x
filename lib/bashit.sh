@@ -42,27 +42,15 @@ function test() {
 }
 
 function [()(
-  __bashit_retrieve_stub "conditional_expr" $@
+  local without_bracket="${@:1:$(($#-1))}"
 
-  (1>&2 echo "hijacking [!")
+  __bashit_retrieve_stub "conditional_expr" "${without_bracket[@]}"
 
   if builtin [ -z "${__bashit_stub_body}" ]
   then
     builtin [ $@
   else
-    . "${__bashit_stub_body}" $@
-  fi
-)
 
-function [[()(
-  __bashit_retrieve_stub "conditional_expr" $@
-
-  (1>&2 echo "hijacking [[!")
-
-  if builtin [ -z "${__bashit_stub_body}" ]
-  then
-    builtin [[ $@
-  else
-    . "${__bashit_stub_body}" $@
+    . "${__bashit_stub_body}" "${without_bracket[@]}"
   fi
 )

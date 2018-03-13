@@ -1,3 +1,4 @@
+require_relative './bash_it/configuration'
 require_relative './bash_it/script'
 require_relative './bash_it/script_evaluator'
 require_relative './bash_it/version'
@@ -8,4 +9,11 @@ require_relative './bash_it/rspec/support'
 require_relative './bash_it/rspec-mocks/space'
 
 module BashIt
+  def self.configuration
+    @configuration ||= Configuration.new
+  end
+
+  def self.configure(&block)
+    yield configuration
+  end
 end

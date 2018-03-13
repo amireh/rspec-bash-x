@@ -8,29 +8,39 @@ require_relative './noisy_thread'
 module BashIt
   class ScriptEvaluator
     CONDITIONAL_EXPR_STUB = 'conditional_expr'.freeze
+    BLOCK_SIZE = 4096
 
-    def eval(script)
+    # (String, Object?): Boolean
+    #
+    # @param [String] script
+    # @param [Hash?] options
+    # @param [Number?] options.read_fd
+    # @param [Number?] options.write_fd
+    def eval(script, **opts)
       file = Tempfile.new('bash_it')
       file.write(script.to_s)
       file.close
 
-      bus_file = Tempfile.new("bashit_#{File.basename(script.source_file).gsub(/\W+/, '_')}")
+      bus_file = Tempfile.new("bash_it#{File.basename(script.source_file).gsub(/\W+/, '_')}")
       bus_file.close
 
-      BashIt::Open3.popen3X('/usr/bin/env', 'bash', file.path) do |input, output, error, r2b, b2r, wait_thr|
+      BashIt::Open3.popen3X('/usr/bin/env', 'bash', file.path, {
+        read_fd: opts.fetch(:read_fd, BashIt.configuration.read_fd),
+        write_fd: opts.fetch(:write_fd, BashIt.configuration.write_fd)
+      }) do |input, output, error, r2b, b2r, wait_thr|
         workers = []
 
         # transmit stdout
         workers << NoisyThread.new do
           FD.poll(output) do
-            STDOUT.write output.read_nonblock(4096)
+            STDOUT.write output.read_nonblock(BLOCK_SIZE)
           end
         end
 
         # transmit stderr
         workers << NoisyThread.new do
           FD.poll(error) do
-            STDERR.write error.read_nonblock(4096)
+            STDERR.write error.read_nonblock(BLOCK_SIZE)
           end
         end
 

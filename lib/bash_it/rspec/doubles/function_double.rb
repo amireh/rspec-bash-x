@@ -15,6 +15,10 @@ module BashIt
         def call_count(script)
           script.calls_for(@routine).count
         end
+
+        def call_args(script)
+          script.calls_for(@routine).map { |x| x[:args] }
+        end
       end
     end
   end

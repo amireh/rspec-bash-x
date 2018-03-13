@@ -5,11 +5,15 @@ require 'rspec/mocks/matchers/expectation_customization'
 module BashIt
   module RSpec
     class ScriptMessageExpectation
+      attr_reader :expected_args, :message
+
       def initialize(double:, display_name:, error_generator:, backtrace_line: nil)
         @double = double
         @display_name = display_name
         @error_generator = error_generator
         @backtrace_line = backtrace_line
+        @expected_args = double.expected_calls
+        @message = @display_name
       end
 
       def invoke(*)
@@ -47,6 +51,21 @@ module BashIt
           report[] if actual_count != expected_count
         else
           fail "Unrecognized call-count quantifier \"#{type}\""
+        end
+
+        @double.call_args(script).tap do |actual_args|
+          @double.expected_calls.each_with_index do |args, index|
+            expected = args
+            actual = actual_args[index]
+
+            if actual != expected
+              @error_generator.raise_unexpected_message_args_error(
+                self,
+                actual_args.map { |x| Array(x) },
+              )
+              break
+            end
+          end
         end
       end
 

@@ -65,7 +65,7 @@ module BashIt
     def track_call(name, args)
       fail "#{name} is not stubbed" unless @stubs.key?(name.to_sym)
 
-      @stub_calls[name.to_sym].push(args)
+      @stub_calls[name.to_sym].push({ args: args })
     end
 
     def track_conditional_call(expr, args)

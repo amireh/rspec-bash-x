@@ -12,11 +12,11 @@ module BashIt
       end
     end
 
-    def self.poll(fd, throttle: 0.1, &block)
+    def self.poll(fd, throttle: BashIt.configuration.throttle, &block)
       while readable?(fd) do
         begin
           yield fd
-          sleep throttle
+          sleep throttle if throttle > 0
         rescue IO::WaitReadable
           IO.select([ fd ])
           retry
