@@ -5,6 +5,8 @@ module BashIt
     module Matchers
       # @private
       class BaseMatcher
+        include ::RSpec::Mocks::Matchers::Matcher
+
         attr_reader :double
 
         def initialize()
@@ -14,10 +16,6 @@ module BashIt
 
         def name
           @display_name
-        end
-
-        def description
-          @describable.description_for(name)
         end
 
         def with_args(args)
@@ -65,20 +63,28 @@ module BashIt
         end
 
         # @private
+        #
+        # (BashIt::Script): ScriptMessageExpectation
         def matches?(subject, &block)
-          @describable = setup_mock_proxy_method_substitute(subject, :add_message_expectation, block)
+          proxy_for(subject).expect_message(
+            double: @double,
+            display_name: @display_name
+          )
         end
 
         # @private
+        #
+        # (BashIt::Script): ScriptMessageExpectation
         def setup_allowance(subject, &block)
-          setup_mock_proxy_method_substitute(subject, :add_stub, block)
+          proxy_for(subject).allow_message(
+            double: @double
+          )
         end
 
         private
 
-        def setup_mock_proxy_method_substitute(subject, method, block)
-          proxy = ::RSpec::Mocks.space.proxy_for(subject)
-          proxy.__send__(method, @double, @display_name, &block) # => ScriptMessageExpectation
+        def proxy_for(subject)
+          ::RSpec::Mocks.space.proxy_for(subject)
         end
       end
     end

@@ -24,17 +24,19 @@ module BashIt
         end
       end
 
-      def add_message_expectation(double, display_name, opts=DEFAULT_MESSAGE_EXPECTATION_OPTS, &block)
-        location = opts.fetch(:expected_from) { ::RSpec::CallerFilter.first_non_rspec_line }
-
-        double.apply(object)
+      def expect_message(double:, display_name:)
+        allow_message(double: double)
 
         @expectations << ScriptMessageExpectation.new(
-          double,
-          display_name,
-          @error_generator,
-          location
+          double: double,
+          display_name: display_name,
+          error_generator: @error_generator,
+          backtrace_line: ::RSpec::CallerFilter.first_non_rspec_line
         )
+      end
+
+      def allow_message(double:)
+        double.apply(object)
       end
     end
   end

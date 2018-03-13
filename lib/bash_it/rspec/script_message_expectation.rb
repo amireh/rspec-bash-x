@@ -5,7 +5,7 @@ require 'rspec/mocks/matchers/expectation_customization'
 module BashIt
   module RSpec
     class ScriptMessageExpectation
-      def initialize(double, display_name, error_generator, backtrace_line=nil)
+      def initialize(double:, display_name:, error_generator:, backtrace_line: nil)
         @double = double
         @display_name = display_name
         @error_generator = error_generator
