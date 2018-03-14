@@ -1,4 +1,5 @@
 require_relative './stub_behavior'
+require_relative './script_generator'
 
 module RSpec
   module Bash
@@ -26,7 +27,7 @@ module RSpec
       end
 
       def to_s
-        BashScriptGenerator.generate(self)
+        ScriptGenerator.generate(self)
       end
 
       def inspect

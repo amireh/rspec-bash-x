@@ -1,10 +1,10 @@
 module RSpec
   module Bash
-    class BashScriptGenerator
+    class ScriptGenerator
       NOOP = lambda { |*| '' }
       SCRIPTS = {
-        conditionals: File.expand_path('../bash_script_generator/conditional.sh', __FILE__),
-        controller: File.expand_path('../bash_script_generator/controller.sh', __FILE__)
+        conditionals: File.expand_path('../script_generator/conditional.sh', __FILE__),
+        controller: File.expand_path('../script_generator/controller.sh', __FILE__)
       }
       SPIES = {
         builtin: lambda { |name|
