@@ -11,6 +11,9 @@ module RSpec
     class ScriptEvaluator
       CONDITIONAL_EXPR_STUB = 'conditional_expr'.freeze
       BLOCK_SIZE = 4096
+      FRAME_NAME  = 1
+      FRAME_ARG   = 2
+      FRAME_TRACE = 3
 
       # (String, Object?): Boolean
       #
@@ -64,7 +67,7 @@ module RSpec
 
           # accept & respond to prompts
           workers << NoisyThread.new do
-            FD.poll(b2r, throttle: Bash.configuration.throttle) do
+            FD.poll(b2r, throttle: 0) do
               respond_to_prompts(r2b, b2r, script, bus_file)
             end
           end
@@ -89,25 +92,36 @@ module RSpec
       private
 
       def respond_to_prompts(fd_in, fd_out, script, bus_file)
-        fd_out.expect("</rspec_bash::stub>", 1) do |result|
+        fd_out.expect("<rspec-bash::req>", 1) do |result|
           break if result.nil?
 
           lines = result[0].split("\n").reject(&:empty?)
 
           stubs = lines.each_with_index.reduce([]) do |acc, (line, index)|
-            next acc unless line == "</rspec_bash::stub>"
+            next acc unless line == "<rspec-bash::req>"
 
             message = lines[index-1]
-            frames = MessageDecoder.decode(message)
+            frames, err = MessageDecoder.decode(message)
+
+            if err
+              STDERR.puts <<-EOF
+                bash-rspec: communication between Ruby and Bash failed, this is
+                most likely an internal error.
+
+                #{err}
+              EOF
+
+              next acc
+            end
 
             stub = frames.reduce({ expr: nil, type: nil, args: [], stacktrace: [] }) do |x, (type, content)|
               case type
-              when 'n'
+              when FRAME_NAME
                 x[:expr] = content
                 x[:type] = content == CONDITIONAL_EXPR_STUB ? :conditional : :function
-              when 'a'
+              when FRAME_ARG
                 x[:args] << content
-              when 'f'
+              when FRAME_TRACE
                 x[:stacktrace] << content unless content.empty?
               else
                 STDERR.puts "rspec-bash: unrecognized frame '#{type}' => '#{content}'"
@@ -134,7 +148,7 @@ module RSpec
               fd_in.puts bus_file.path
               fd_in.flush
 
-              fd_out.expect('</rspec_bash::stub-body>', 1)
+              fd_out.expect('<rspec-bash::ack>', 1)
 
               script.track_conditional_call(stub[:args])
             when :function
@@ -155,7 +169,7 @@ module RSpec
               fd_in.puts bus_file.path
               fd_in.flush
 
-              fd_out.expect('</rspec_bash::stub-body>', 1)
+              fd_out.expect('<rspec-bash::ack>', 1)
 
               script.track_call(routine, args)
             when :unknown

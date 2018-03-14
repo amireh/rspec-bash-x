@@ -1,48 +1,69 @@
 module RSpec
   module Bash
     class MessageDecoder
-      READING_FRAME = 2
-      READING_FRAME_SZ = 1
+      READING_FRAME_COUNT = 1
+      READING_FRAME_SZ = 2
+      READING_FRAME = 3
       RE_NUMBER = /\d/
 
       def self.decode(buffer)
-        state = READING_FRAME_SZ
+        state = READING_FRAME_COUNT
+        buffersz = buffer.length
         frames = []
-        frame = ''
-        framesz = ''
-        frameread = 0
+        frame_buf = ''
+        frame_count_buf = ''
+        frame_count = Float::INFINITY
+        framesz_buf = ''
+        framesz = Float::INFINITY
         cursor = 0
 
-        while cursor < buffer.length
+        while cursor < buffersz && frames.count < frame_count
           char = buffer[cursor]
           cursor += 1
 
           case state
+          when READING_FRAME_COUNT
+            case char
+            when ';'
+              state = READING_FRAME_SZ
+              frame_count = frame_count_buf.to_i
+              frame_count_buf = ''
+              framesz_buf = ''
+            when /\d/
+              frame_count_buf += char
+            else
+              return nil, "invalid payload: illegal character in header '#{char}' (#{cursor}/#{buffersz})"
+            end
           when READING_FRAME_SZ
             case char
             when ';'
               state = READING_FRAME
-              frame = ''
-              framesz = framesz.to_i
-              frameread = 0
+              frame_buf = ''
+              framesz = framesz_buf.to_i
+              framesz_buf = ''
+            when /\d/
+              framesz_buf += char
             else
-              framesz += char
+              return nil, "invalid payload: illegal character in frame header '#{char}' (#{cursor}/#{buffersz})"
             end
           when READING_FRAME
-            frameread += 1
-            frame += char
+            frame_buf += char
 
-            if frameread == framesz
+            if frame_buf.length == framesz
               state = READING_FRAME_SZ
-              frames.push(frame)
-              framesz = ''
+              frames.push(frame_buf)
+              framesz = Float::INFINITY
             end
           end
         end
 
-        frames.map do |frame|
-          frame_class, frame_content = frame[0], frame.slice(2..-1)
+        if frames.count != frame_count
+          return nil, "invalid payload: expected #{frame_count} frames but got #{frames.count}"
         end
+
+        [ frames.map do |frame|
+          frame_class, frame_content = frame[0..1].to_i, frame.slice(2..-1)
+        end ]
       end
     end
   end

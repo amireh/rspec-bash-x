@@ -14,31 +14,32 @@ function __rspec_bash_write() {
 
 function __rspec_bash_load_stub() {
   local name="${1}"
+  local arg
+  local message
+  local fragments=(
+    "1 ${name}"
+    "3 $(caller 1)"
+    "3 $(caller 2)"
+    "3 $(caller 3)"
+  )
 
   builtin shift 1
 
-  local arg
-  local message=""
-  local fragments=(
-    "n ${name}"
-    "f $(caller 1)"
-    "f $(caller 2)"
-    "f $(caller 3)"
-  )
-
   for arg in "${@}"; do
-    fragments+=("a ${arg}")
+    fragments+=("2 ${arg}")
   done
+
+  message="${#fragments[@]};"
 
   for fragment in "${fragments[@]}"; do
     message="${message}${#fragment};${fragment}"
   done
 
   __rspec_bash_write "${message}"
-  __rspec_bash_write "</rspec_bash::stub>"
+  __rspec_bash_write "<rspec-bash::req>"
 
   __rspec_bash_read  __rspec_bash_stub_body
-  __rspec_bash_write "</rspec_bash::stub-body>"
+  __rspec_bash_write "<rspec-bash::ack>"
 
   builtin test -s "${__rspec_bash_stub_body}"
 }
