@@ -9,7 +9,7 @@ RSpec.describe RSpec::Bash, type: :bash do
       """
     }
 
-    run_script subject
+    run_script subject, []
   end
 end
 
@@ -19,6 +19,74 @@ RSpec.describe RSpec::Bash, type: :bash do
   it 'can pass args' do
     run_script subject, [ 'x', 'Y' ]
     expect(subject.stdout).to eq("one=x two=Y\n")
+  end
+end
+
+RSpec.describe 'conditionals: "test"', type: :bash do
+  subject {
+    RSpec::Bash::Script.new <<-EOF
+      foo="FOO"
+
+      if test -n "${foo}"; then
+        echo "yes"
+      fi
+
+      test -n "${foo}" && echo "yes"
+    EOF
+  }
+
+  it 'works' do
+    expect(subject).to test('-n').with_args('FOO').and_return 1
+
+    run_script subject
+
+    expect(subject.stdout).to be_empty
+  end
+end
+
+RSpec.describe 'conditionals: "["', type: :bash do
+  it 'works' do
+    subject = RSpec::Bash::Script.new <<-EOF
+      foo="FOO"
+
+      if [ -n "${foo}" ]; then
+        echo "yes"
+      fi
+
+      [ -n "${foo}" ] && echo "yes"
+    EOF
+
+    expect(subject).to test('-n').with_args('FOO').and_return 1
+
+    run_script subject
+
+    expect(subject.stdout).to be_empty
+  end
+
+  context 'when .with_args is used...' do
+    xit 'returns the respective codes based on arguments' do
+      subject = RSpec::Bash::Script.new <<-EOF
+        foo="FOO"
+        bar="BAR"
+
+        if [ -n "${foo}" ]; then
+          echo "yes foo"
+        fi
+
+        [ -n "${bar}" ] && echo "yes bar"
+      EOF
+
+      expect(subject).to (
+        test('-n')
+          .with_args('FOO').and_return(1)
+          .with_args('BAR').and_return(0)
+      )
+
+      run_script subject
+
+      expect(subject.stdout).to eq("yes bar\n")
+
+    end
   end
 end
 

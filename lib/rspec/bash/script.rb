@@ -8,7 +8,7 @@ module RSpec
         new(File.read(path))
       end
 
-      attr_reader :source, :source_file, :stdout, :stderr, :exit_code
+      attr_reader :exit_code, :source, :source_file, :stdout, :stderr, :stubs
 
       def initialize(source, path = 'Anonymous')
         @conditional_stubs = []
@@ -23,7 +23,7 @@ module RSpec
       end
 
       def to_s
-        to_bash_script
+        BashScriptGenerator.generate(self)
       end
 
       def inspect
@@ -82,40 +82,6 @@ module RSpec
 
       def track_exit_code(code)
         @exit_code = code
-      end
-
-      private
-
-      def to_bash_script
-        buffer = ""
-        buffer << "builtin source '#{Script::MAIN_SCRIPT_FILE}'"
-        buffer << "\n"
-
-        @stubs.keys.each do |name|
-          stub_def = @stubs[name]
-
-          if stub_def[:call_original] then
-            buffer << <<-EOF
-              #{name}() {
-                __rspec_bash_run_stub '#{name}' $@
-
-                builtin #{name} $@
-              }
-            EOF
-          elsif stub_def[:subshell] == false then
-            buffer << <<-EOF
-              #{name}() {
-                __rspec_bash_run_stub '#{name}' $@
-              }
-            EOF
-          else
-            buffer << "#{name}()(__rspec_bash_run_stub '#{name}' $@)\n"
-          end
-        end
-
-        buffer << "\n"
-        buffer << @source
-        buffer
       end
     end
   end

@@ -105,8 +105,8 @@ module RSpec
             acc
           end
 
-          prompts.each do |type:, buffer:, **stub|
-            case type
+          prompts.each do |stub|
+            case stub[:type]
             when :conditional
               if !script.has_conditional_stubs? && !Bash.configuration.allow_unstubbed_conditionals
                 fail "conditional expressions are not stubbed!"
@@ -134,7 +134,7 @@ module RSpec
 
               script.track_call(routine, args)
             when :unknown
-              STDERR.write "[err] unexpected message from bash: #{buffer}"
+              STDERR.write "[err] unexpected message from bash: #{stub[:buffer]}"
             end
           end
         end

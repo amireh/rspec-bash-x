@@ -1,3 +1,4 @@
+require_relative './bash/bash_script_generator'
 require_relative './bash/configuration'
 require_relative './bash/fd'
 require_relative './bash/noisy_thread'
