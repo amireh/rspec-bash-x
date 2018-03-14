@@ -34,7 +34,7 @@ module RSpec
       def self.generate(script)
         buffer = ""
         buffer << "builtin . '#{SCRIPTS[:controller]}'\n"
-        buffer << "builtin . '#{SCRIPTS[:conditionals]}'" if script.has_conditional_stubs?
+        buffer << "builtin . '#{SCRIPTS[:conditionals]}'\n" if script.has_conditional_stubs?
         buffer << "\n"
 
         script.stubs.keys.each do |name|

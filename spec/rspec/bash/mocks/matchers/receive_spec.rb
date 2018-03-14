@@ -1,7 +1,7 @@
 RSpec.describe '.receive()', type: :bash do
-  subject { RSpec::Bash::Script.new('echo "Hello World!"') }
-
   it 'can hijack builtin functions' do
+    subject = a_script 'echo "Hello World!"'
+
     expect(subject).to receive(:echo).once.and_yield { |args|
       """
         builtin echo \"> hijacked!\"
@@ -9,7 +9,37 @@ RSpec.describe '.receive()', type: :bash do
       """
     }
 
-    run_script subject, []
+    run_script subject
+  end
+
+  it 'can hijack functions' do
+    pending "not sure it's worthwhile, it only affects inlined functions"
+
+    subject = a_script """
+      function a() {
+        echo 'hi'
+      }
+
+      a
+    """
+
+    expect(subject).to receive(:a).and_return 0
+
+    run_script subject
+
+    expect(subject.stdout).to eq('')
+  end
+
+  describe '.and_call_original' do
+    subject { a_script 'echo "Hello World!"' }
+
+    it 'works with builtin functions' do
+      expect(subject).to receive(:echo).once.and_call_original
+
+      expect(run_script(subject)).to eq(true)
+
+      expect(subject.stdout).to eq("Hello World!\n")
+    end
   end
 
   describe '.with_args' do

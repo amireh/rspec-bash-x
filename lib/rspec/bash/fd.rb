@@ -5,10 +5,10 @@ module RSpec
         begin
           !fd.closed? && !fd.eof?
         rescue IOError => e
-          if e.to_s == "stream closed"
+          if noise? e
             return false
           else
-            throw
+            throw e
           end
         end
       end
@@ -22,7 +22,7 @@ module RSpec
             IO.select([ fd ])
             retry
           rescue IOError => e
-            if e.to_s == "stream closed" || e.to_s == "closed stream"
+            if noise? e
               break
             else
               throw e
@@ -31,6 +31,10 @@ module RSpec
             break
           end
         end
+      end
+
+      def self.noise?(error)
+        error.to_s == "stream closed" || error.to_s == "closed stream"
       end
     end
   end
