@@ -9,11 +9,13 @@ require_relative './message_decoder'
 module RSpec
   module Bash
     class ScriptEvaluator
+      BLOCK_SIZE  = 1024
       CONDITIONAL_EXPR_STUB = 'conditional_expr'.freeze
-      BLOCK_SIZE = 4096
       FRAME_NAME  = 1
       FRAME_ARG   = 2
       FRAME_TRACE = 3
+      MESSAGE_REQ = '<rspec-bash::req>'.freeze
+      MESSAGE_ACK = '<rspec-bash::ack>'.freeze
 
       # (String, Object?): Boolean
       #
@@ -68,7 +70,7 @@ module RSpec
           # accept & respond to prompts
           workers << NoisyThread.new do
             FD.poll(b2r, throttle: 0) do
-              respond_to_prompts(r2b, b2r, script, bus_file)
+              respond_to_prompts(r2b, b2r, bus_file, script)
             end
           end
 
@@ -91,14 +93,14 @@ module RSpec
 
       private
 
-      def respond_to_prompts(fd_in, fd_out, script, bus_file)
-        fd_out.expect("<rspec-bash::req>", 1) do |result|
+      def respond_to_prompts(fd_in, fd_out, bus_file, script)
+        fd_out.expect(MESSAGE_REQ, 1) do |result|
           break if result.nil?
 
           lines = result[0].split("\n").reject(&:empty?)
 
           stubs = lines.each_with_index.reduce([]) do |acc, (line, index)|
-            next acc unless line == "<rspec-bash::req>"
+            next acc unless line == MESSAGE_REQ
 
             message = lines[index-1]
             frames, err = MessageDecoder.decode(message)
@@ -139,58 +141,48 @@ module RSpec
           stubs.each do |stub|
             case stub[:type]
             when :conditional
-              if !script.has_conditional_stubs? && !Bash.configuration.allow_unstubbed_conditionals
-                fail "conditional expressions are not stubbed!\n#{stub[:stacktrace]}"
-              end
-
-              File.write(bus_file, script.stubbed_conditional(stub[:args]))
-
-              fd_in.puts bus_file.path
-              fd_in.flush
-
-              fd_out.expect('<rspec-bash::ack>', 1)
-
-              script.track_conditional_call(stub[:args])
+              relay_conditional_stub(fd_in, fd_out, bus_file, script: script, stub: stub)
             when :function
-              if !script.has_stub?(stub[:expr])
-                fail(
-                  "#{stub[:expr]} is not stubbed!\n\n" +
-                  "Call stack:\n" +
-                  stub[:stacktrace].map { |x| "- #{x}" }.join("\n")
-                )
-              end
-
-              routine = stub[:expr]
-              args    = stub[:args]
-              body    = script.stubbed(routine, args)
-
-              File.write(bus_file, body)
-
-              fd_in.puts bus_file.path
-              fd_in.flush
-
-              fd_out.expect('<rspec-bash::ack>', 1)
-
-              script.track_call(routine, args)
+              relay_command_stub(fd_in, fd_out, bus_file, script: script, stub: stub)
             when :unknown
-              STDERR.write "[err] unexpected message from bash: #{stub.inspect}"
+              STDERR.puts "[err] unexpected message from bash: #{stub.inspect}"
             end
           end
         end
       end
 
-      def split_by_first_space(string)
-        delim = string.index(' ')
-
-        # single-argument expressions, this usually happens in unary tests
-        # where the argument evaluates to an empty string, a la:
-        #
-        #     test -z "${string}" => "-z"
-        if delim.nil?
-          return [ string, '' ]
+      def relay_command_stub(fd_in, fd_out, bus_file, script:, stub:)
+        if !script.has_stub?(stub[:expr])
+          fail(
+            "#{stub[:expr]} is not stubbed!\n\n" +
+            "Call stack:\n" +
+            stub[:stacktrace].map { |x| "- #{x}" }.join("\n")
+          )
         end
 
-        [ string[0..delim - 1], string[delim + 1..-1] ]
+        File.write(bus_file, script.stubbed(stub[:expr], stub[:args]))
+
+        fd_in.puts bus_file.path
+        fd_in.flush
+
+        fd_out.expect(MESSAGE_ACK, 1)
+
+        script.track_call(stub[:expr], stub[:args])
+      end
+
+      def relay_conditional_stub(fd_in, fd_out, bus_file, script:, stub:)
+        if !script.has_conditional_stubs? && !Bash.configuration.allow_unstubbed_conditionals
+          fail "conditional expressions are not stubbed!\n#{stub[:stacktrace]}"
+        end
+
+        File.write(bus_file, script.stubbed_conditional(stub[:args]))
+
+        fd_in.puts bus_file.path
+        fd_in.flush
+
+        fd_out.expect(MESSAGE_ACK, 1)
+
+        script.track_conditional_call(stub[:args])
       end
 
       def try_hard(what)
@@ -201,10 +193,6 @@ module RSpec
           puts e
           puts e.backtrace
         end
-      end
-
-      def remove_space_guards(string)
-        string.gsub(/^[ ]{1}|[ ]$/, '')
       end
     end
   end
