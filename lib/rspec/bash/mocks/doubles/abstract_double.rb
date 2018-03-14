@@ -3,7 +3,12 @@ module RSpec
     module Mocks
       module Doubles
         class AbstractDouble
-          attr_accessor :body, :call_original, :calls, :expected_call_count, :expected_calls
+          attr_accessor :body,
+            :call_original,
+            :calls,
+            :expected_call_count,
+            :expected_calls,
+            :subshell
 
           def initialize(*)
             @body = nil
@@ -11,6 +16,7 @@ module RSpec
             @calls = []
             @expected_call_count = [:at_least, 1]
             @expected_calls = []
+            @subshell = true
           end
 
           def apply

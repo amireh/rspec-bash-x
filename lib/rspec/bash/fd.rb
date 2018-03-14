@@ -22,10 +22,10 @@ module RSpec
             IO.select([ fd ])
             retry
           rescue IOError => e
-            if e.to_s == "stream closed"
+            if e.to_s == "stream closed" || e.to_s == "closed stream"
               break
             else
-              throw
+              throw e
             end
           rescue EOFError
             break

@@ -27,8 +27,11 @@ module RSpec
             tap { @double.body = lambda { |*| "return #{code}" } }
           end
 
-          def and_yield(&block)
-            tap { @double.body = block }
+          def and_yield(subshell: true, &block)
+            tap {
+              @double.body = block
+              @double.subshell = subshell
+            }
           end
 
           def exactly(n)

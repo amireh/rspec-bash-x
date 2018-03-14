@@ -30,9 +30,10 @@ module RSpec
         "Script(\"#{File.basename(@source_file)}\")"
       end
 
-      def stub(fn, call_original: false, &body)
+      def stub(fn, call_original: false, subshell: true, &body)
         @stubs[fn.to_sym] = {
           body: (call_original || !body) ? NOOP : body,
+          subshell: subshell,
           call_original: call_original
         }
       end
@@ -99,6 +100,12 @@ module RSpec
                 __rspec_bash_run_stub '#{name}' $@
 
                 builtin #{name} $@
+              }
+            EOF
+          elsif stub_def[:subshell] == false then
+            buffer << <<-EOF
+              #{name}() {
+                __rspec_bash_run_stub '#{name}' $@
               }
             EOF
           else

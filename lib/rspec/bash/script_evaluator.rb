@@ -181,6 +181,7 @@ module RSpec
         rescue StandardError => e
           puts what
           puts e
+          puts e.backtrace
         end
       end
     end
