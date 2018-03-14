@@ -2,31 +2,31 @@ module RSpec
   module Bash
     module Mocks
       module Doubles
-        class ConditionalDouble < AbstractDouble
-          attr_accessor :expr
+        class ExactConditionalDouble < AbstractDouble
+          attr_accessor :fullexpr
 
-          def initialize(expr)
+          def initialize(fullexpr)
             super()
 
-            @expr = expr
+            @fullexpr = fullexpr
           end
 
           def apply(script)
-            script.stub_conditional(@expr,
+            script.stub_conditional(@fullexpr,
               behaviors: behaviors
             )
           end
 
           def call_count(script)
-            script.conditional_calls_for(@expr).count
+            script.exact_conditional_calls_for(@fullexpr).count
           end
 
           def call_args(script)
-            script.conditional_calls_for(@expr)
+            script.exact_conditional_calls_for(@fullexpr)
           end
 
           def to_s
-            @expr.to_s
+            @fullexpr.to_s
           end
         end
       end

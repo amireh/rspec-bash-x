@@ -1,10 +1,11 @@
-require_relative './bound_stub_body'
+require_relative './stub_behavior'
 
 module RSpec
   module Bash
     class Script
       MAIN_SCRIPT_FILE = File.expand_path('../controller.sh', __FILE__)
       NOOP = lambda { |*| '' }
+      NOOP_BEHAVIOR = StubBehavior.new(body: NOOP, charges: Float::INFINITY)
 
       def self.load(path)
         new(File.read(path))
@@ -32,34 +33,30 @@ module RSpec
         "Script(\"#{File.basename(@source_file)}\")"
       end
 
-      def stub(fn, behaviors:, call_original: false, subshell: true, bodies: [])
+      def stub(fn, behaviors:, call_original: false, subshell: true)
         @stubs[fn.to_sym] = {
-          behaviors: behaviors,
-          bodies: call_original ? [ NOOP ] : bodies,
+          behaviors: behaviors.map { |x| StubBehavior.new(x) },
           subshell: subshell,
           call_original: call_original
         }
       end
 
-      def stub_conditional(expr, bodies:, behaviors:)
+      def stub_conditional(expr, behaviors:)
         @conditional_stubs << {
-          behaviors: behaviors,
+          behaviors: behaviors.map { |x| StubBehavior.new(x) },
           expr: expr,
-          bodies: bodies
         }
       end
 
       def stubbed(name, args)
-        # call_body_with_args @stubs[name.to_sym][:bodies], args
-        apply_matching_behavior @stubs[name.to_sym][:behaviors], args
+        apply_matching_behavior @stubs[name.to_sym], args
       end
 
-      def stubbed_conditional(expr, args)
-        conditional_stub = @conditional_stubs.detect { |x| x[:expr] == expr }
+      def stubbed_conditional(fullexpr)
+        conditional_stub = @conditional_stubs.detect { |x| fullexpr.index(x[:expr]) == 0 }
 
         if conditional_stub
-          apply_matching_behavior conditional_stub[:behaviors], args
-          # call_body_with_args(conditional_stub[:bodies], args)
+          apply_matching_behavior conditional_stub, fullexpr
         else
           ""
         end
@@ -78,7 +75,11 @@ module RSpec
       end
 
       def conditional_calls_for(expr)
-        @conditional_stub_calls.select { |x| x[:expr] == expr }
+        @conditional_stub_calls.select { |x| x.index(expr) == 0 }
+      end
+
+      def exact_conditional_calls_for(fullexpr)
+        @conditional_stub_calls.select { |x| x == fullexpr }
       end
 
       def track_call(name, args)
@@ -87,8 +88,8 @@ module RSpec
         @stub_calls[name.to_sym].push({ args: args })
       end
 
-      def track_conditional_call(expr, args)
-        @conditional_stub_calls.push({ expr: expr, args: args })
+      def track_conditional_call(fullexpr)
+        @conditional_stub_calls.push(fullexpr)
       end
 
       def track_exit_code(code)
@@ -97,28 +98,11 @@ module RSpec
 
       private
 
-      def call_body_with_args(bodies, args)
-        bound_body = bodies.detect { |x| x.is_a?(BoundStubBody) && x.applicable?(args) }
-
-        return bound_body.call(args) if bound_body
-
-        body = bodies.detect { |x| !x.is_a?(BoundStubBody) }
-
-        return body.call(args) if body
-
-        NOOP.call(args)
-      end
-
-      def apply_matching_behavior(behaviors, args)
-        behavior = behaviors.detect { |x| !x[:args].nil? && x[:args] == args && x[:body] }
-
-        return behavior[:body].call(args) if behavior
-
-        behavior = behaviors.detect { |x| x[:args].nil? && x[:body] }
-
-        return behavior[:body].call(args) if behavior
-
-        NOOP.call(args)
+      def apply_matching_behavior(stub, args)
+        behavior = stub[:behaviors].detect { |x| x.usable? && x.applicable?(args) }
+        behavior ||= stub[:behaviors].detect { |x| x.usable? && x.context_free? }
+        behavior ||= NOOP_BEHAVIOR
+        behavior.apply!(args)
       end
     end
   end

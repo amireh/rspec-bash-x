@@ -14,7 +14,6 @@ module RSpec
               call_original: call_original,
               behaviors: behaviors,
               subshell: subshell,
-              bodies: bodies
             )
           end
 

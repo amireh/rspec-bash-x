@@ -4,6 +4,7 @@ require 'tempfile'
 require_relative './fd'
 require_relative './open3'
 require_relative './noisy_thread'
+require_relative './message_decoder'
 
 module RSpec
   module Bash
@@ -93,56 +94,59 @@ module RSpec
 
           lines = result[0].split("\n").reject(&:empty?)
 
-          prompts = lines.each_with_index.reduce([]) do |acc, (line, index)|
+          stubs = lines.each_with_index.reduce([]) do |acc, (line, index)|
             next acc unless line == "</rspec_bash::stub>"
 
-            message_line_count = lines[index-1].to_i
-            message_bounds = [
-              index - message_line_count - 1,
-              index - 2
-            ]
+            message = lines[index-1]
+            frames = MessageDecoder.decode(message)
 
-            message = lines.slice(message_bounds[0]..message_bounds[1])
+            stub = frames.reduce({ expr: nil, type: nil, args: [], stacktrace: [] }) do |x, (type, content)|
+              case type
+              when 'n'
+                x[:expr] = content
+                x[:type] = content == CONDITIONAL_EXPR_STUB ? :conditional : :function
+              when 'a'
+                x[:args] << content
+              when 'f'
+                x[:stacktrace] << content unless content.empty?
+              else
+                STDERR.puts "rspec-bash: unrecognized frame '#{type}' => '#{content}'"
+                STDERR.puts "rspec-bash: source:\n#{message}"
+              end
 
-            target_id = remove_space_guards(message[0])
-            target_args = remove_space_guards(message[1])
+              x
+            end.tap do |stub|
+              stub[:args] = stub[:args].join(' ')
+            end
 
-            call = classify_stub(target_id, target_args)
-            call[:stacktrace] = (
-              message
-                .slice(2..-1)
-                .map { |x| remove_space_guards(x) }
-                .reject(&:empty?)
-            )
-
-            acc.push(call)
+            acc.push(stub)
           end
 
-          prompts.each do |stub|
+          stubs.each do |stub|
             case stub[:type]
             when :conditional
               if !script.has_conditional_stubs? && !Bash.configuration.allow_unstubbed_conditionals
                 fail "conditional expressions are not stubbed!\n#{stub[:stacktrace]}"
               end
 
-              File.write(bus_file, script.stubbed_conditional(stub[:expr], stub[:args]))
+              File.write(bus_file, script.stubbed_conditional(stub[:args]))
 
               fd_in.puts bus_file.path
               fd_in.flush
 
               fd_out.expect('</rspec_bash::stub-body>', 1)
 
-              script.track_conditional_call(stub[:expr], stub[:args])
+              script.track_conditional_call(stub[:args])
             when :function
-              if !script.has_stub?(stub[:name])
+              if !script.has_stub?(stub[:expr])
                 fail(
-                  "#{stub[:name]} is not stubbed!\n\n" +
+                  "#{stub[:expr]} is not stubbed!\n\n" +
                   "Call stack:\n" +
                   stub[:stacktrace].map { |x| "- #{x}" }.join("\n")
                 )
               end
 
-              routine = stub[:name]
+              routine = stub[:expr]
               args    = stub[:args]
               body    = script.stubbed(routine, args)
 
@@ -158,25 +162,6 @@ module RSpec
               STDERR.write "[err] unexpected message from bash: #{stub.inspect}"
             end
           end
-        end
-      end
-
-      def classify_stub(identifier, args)
-        case identifier
-        when CONDITIONAL_EXPR_STUB
-          expr, expr_args = split_by_first_space(args)
-
-          {
-            type: :conditional,
-            expr: expr,
-            args: expr_args,
-          }
-        else
-          {
-            type: :function,
-            name: identifier,
-            args: args,
-          }
         end
       end
 

@@ -28,12 +28,12 @@ module RSpec
         def expect_message(double:, display_name:)
           allow_message(double: double)
 
-          @expectations << ScriptMessageExpectation.new(
+          ScriptMessageExpectation.new(
             double: double,
             display_name: display_name,
             error_generator: @error_generator,
             backtrace_line: ::RSpec::CallerFilter.first_non_rspec_line
-          )
+          ).tap { |x| @expectations << x }
         end
 
         def allow_message(double:)

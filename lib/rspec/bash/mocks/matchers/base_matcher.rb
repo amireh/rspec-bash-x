@@ -22,51 +22,45 @@ module RSpec
           def with_args(args)
             tap {
               @double.expected_calls << args
-              @double.behaviors << { args: args }
+              @double.behaviors << create_behavior({ args: args })
             }
           end
 
-          def and_return(code)
-            tap {
-              body = Proc.new { |*| "return #{code}" }
-
-              if @double.expected_calls.any?
-                @double.bodies << BoundStubBody.new(@double.expected_calls.last, &body)
-              else
-                @double.bodies << body
-              end
-
-              # behavior
-              behavior = @double.behaviors.detect { |x| x[:body].nil? } || {}.tap do |x|
-                @double.behaviors.push(x)
-              end
-              behavior[:body] = body
-              behavior[:subshell] = true
-            }
-          end
-
-          def and_yield(subshell: true, &body)
+          def and_yield(subshell: true, times: 1, &body)
             tap {
               @double.subshell = subshell
 
-              if @double.expected_calls.any?
-                @double.bodies << BoundStubBody.new(@double.expected_calls.last, &body)
-              else
-                @double.bodies << body
-              end
-
-              # behavior
-              behavior = @double.behaviors.detect { |x| x[:body].nil? } || {}.tap do |x|
-                @double.behaviors.push(x)
-              end
-
+              behavior = find_last_blank_or_create_behavior
               behavior[:body] = body
+              behavior[:charges] = behavior[:charges] == 0 ? times : behavior[:charges]
               behavior[:subshell] = subshell
             }
           end
 
+          def and_return(code, times: 1)
+            and_yield(subshell: false, times: times) { |*| "return #{code}" }
+          end
+
+          def and_always_return(code)
+            and_return(code, times: Float::INFINITY)
+          end
+
+          def and_always_yield(subshell: true, &body)
+            and_yield(subshell: subshell, times: Float::INFINITY, &body)
+          end
+
           def exactly(n)
-            tap { @double.expected_call_count = [:exactly, n] }
+            tap do
+              if @double.behaviors.last
+                @double.behaviors.last[:charges] = n
+
+                (n-1).times do
+                  @double.expected_calls << @double.expected_calls.last
+                end
+              else
+                @double.expected_call_count = [:exactly, n]
+              end
+            end
           end
 
           def at_least(n)
@@ -120,10 +114,24 @@ module RSpec
             )
           end
 
-          private
+          protected
 
           def proxy_for(subject)
             ::RSpec::Mocks.space.proxy_for(subject)
+          end
+
+          def find_last_blank_or_create_behavior
+            @double.behaviors.detect { |x| x[:body].nil? } || begin
+              create_behavior.tap { |x| @double.behaviors << x }
+            end
+          end
+
+          def create_behavior(args: nil, body: nil, charges: 0)
+            {
+              args: args,
+              body: body,
+              charges: charges
+            }
           end
         end
       end

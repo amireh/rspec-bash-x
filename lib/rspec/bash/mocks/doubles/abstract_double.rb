@@ -5,7 +5,6 @@ module RSpec
         class AbstractDouble
           attr_accessor(
             :behaviors,
-            :bodies,
             :call_original,
             :calls,
             :expected_call_count,
@@ -15,7 +14,6 @@ module RSpec
 
           def initialize(*)
             @behaviors = []
-            @bodies = []
             @call_original = false
             @calls = []
             @expected_call_count = [:at_least, 1]

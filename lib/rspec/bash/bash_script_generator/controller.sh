@@ -17,27 +17,24 @@ function __rspec_bash_load_stub() {
 
   builtin shift 1
 
+  local arg
   local message=""
   local fragments=(
     "n ${name}"
-    "a ${@}"
     "f $(caller 1)"
     "f $(caller 2)"
     "f $(caller 3)"
   )
 
+  for arg in "${@}"; do
+    fragments+=("a ${arg}")
+  done
+
   for fragment in "${fragments[@]}"; do
     message="${message}${#fragment};${fragment}"
   done
 
-  # (1>&2 printf "ENCODED_MESSAGE= %s\n" "${message}")
-
-  __rspec_bash_write " ${name} "
-  __rspec_bash_write " ${@} "
-  __rspec_bash_write " $(caller 1) "
-  __rspec_bash_write " $(caller 2) "
-  __rspec_bash_write " $(caller 3) "
-  __rspec_bash_write 5
+  __rspec_bash_write "${message}"
   __rspec_bash_write "</rspec_bash::stub>"
 
   __rspec_bash_read  __rspec_bash_stub_body
