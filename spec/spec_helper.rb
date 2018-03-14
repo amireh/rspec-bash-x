@@ -54,6 +54,7 @@ RSpec.configure do |config|
 
   RSpec::Bash.configure do |bash|
     bash.throttle = 0
+    bash.verbose = ENV['VERBOSE'] == '1'
   end
 
   # The settings below are suggested to provide a good initial experience

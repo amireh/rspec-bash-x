@@ -20,17 +20,48 @@ module RSpec
           end
 
           def with_args(args)
-            tap { @double.expected_calls << args }
+            tap {
+              @double.expected_calls << args
+              @double.behaviors << { args: args }
+            }
           end
 
           def and_return(code)
-            tap { @double.body = lambda { |*| "return #{code}" } }
+            tap {
+              body = Proc.new { |*| "return #{code}" }
+
+              if @double.expected_calls.any?
+                @double.bodies << BoundStubBody.new(@double.expected_calls.last, &body)
+              else
+                @double.bodies << body
+              end
+
+              # behavior
+              behavior = @double.behaviors.detect { |x| x[:body].nil? } || {}.tap do |x|
+                @double.behaviors.push(x)
+              end
+              behavior[:body] = body
+              behavior[:subshell] = true
+            }
           end
 
-          def and_yield(subshell: true, &block)
+          def and_yield(subshell: true, &body)
             tap {
-              @double.body = block
               @double.subshell = subshell
+
+              if @double.expected_calls.any?
+                @double.bodies << BoundStubBody.new(@double.expected_calls.last, &body)
+              else
+                @double.bodies << body
+              end
+
+              # behavior
+              behavior = @double.behaviors.detect { |x| x[:body].nil? } || {}.tap do |x|
+                @double.behaviors.push(x)
+              end
+
+              behavior[:body] = body
+              behavior[:subshell] = subshell
             }
           end
 

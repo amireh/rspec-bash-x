@@ -22,6 +22,32 @@ RSpec.describe RSpec::Bash, type: :bash do
   end
 end
 
+RSpec.describe '.with_args', type: :bash do
+  subject {
+    RSpec::Bash::Script.new <<-EOF
+      echo "one"
+      echo "one two"
+      echo "three"
+    EOF
+  }
+
+  it 'can pass args' do
+    expect(subject).to (
+      receive(:echo)
+        .with_args('one').and_yield { |x| "builtin echo 'one+1'" }
+        .with_args('one two').and_return(1)
+        .and_yield { |x| "builtin echo \"$1+1\"" }
+    )
+
+    run_script subject
+
+    expect(subject.stdout.lines).to eq([
+      "one+1\n",
+      "three+1\n"
+    ])
+  end
+end
+
 RSpec.describe 'conditionals: "test"', type: :bash do
   subject {
     RSpec::Bash::Script.new <<-EOF
@@ -64,7 +90,7 @@ RSpec.describe 'conditionals: "["', type: :bash do
   end
 
   context 'when .with_args is used...' do
-    xit 'returns the respective codes based on arguments' do
+    it 'returns the respective codes based on arguments' do
       subject = RSpec::Bash::Script.new <<-EOF
         foo="FOO"
         bar="BAR"

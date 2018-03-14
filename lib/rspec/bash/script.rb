@@ -1,3 +1,5 @@
+require_relative './bound_stub_body'
+
 module RSpec
   module Bash
     class Script
@@ -30,32 +32,41 @@ module RSpec
         "Script(\"#{File.basename(@source_file)}\")"
       end
 
-      def stub(fn, call_original: false, subshell: true, &body)
+      def stub(fn, behaviors:, call_original: false, subshell: true, bodies: [])
         @stubs[fn.to_sym] = {
-          body: (call_original || !body) ? NOOP : body,
+          behaviors: behaviors,
+          bodies: call_original ? [ NOOP ] : bodies,
           subshell: subshell,
           call_original: call_original
         }
       end
 
-      def stub_conditional(expr, &body)
-        @conditional_stubs << { expr: expr, body: body || NOOP }
+      def stub_conditional(expr, bodies:, behaviors:)
+        @conditional_stubs << {
+          behaviors: behaviors,
+          expr: expr,
+          bodies: bodies
+        }
       end
 
       def stubbed(name, args)
-        fail "#{name} is not stubbed" unless @stubs.key?(name.to_sym)
-
-        @stubs[name.to_sym][:body].call(args)
+        # call_body_with_args @stubs[name.to_sym][:bodies], args
+        apply_matching_behavior @stubs[name.to_sym][:behaviors], args
       end
 
       def stubbed_conditional(expr, args)
         conditional_stub = @conditional_stubs.detect { |x| x[:expr] == expr }
 
         if conditional_stub
-          conditional_stub[:body].call(args)
+          apply_matching_behavior conditional_stub[:behaviors], args
+          # call_body_with_args(conditional_stub[:bodies], args)
         else
           ""
         end
+      end
+
+      def has_stub?(name)
+        @stubs.key?(name.to_sym)
       end
 
       def has_conditional_stubs?
@@ -82,6 +93,32 @@ module RSpec
 
       def track_exit_code(code)
         @exit_code = code
+      end
+
+      private
+
+      def call_body_with_args(bodies, args)
+        bound_body = bodies.detect { |x| x.is_a?(BoundStubBody) && x.applicable?(args) }
+
+        return bound_body.call(args) if bound_body
+
+        body = bodies.detect { |x| !x.is_a?(BoundStubBody) }
+
+        return body.call(args) if body
+
+        NOOP.call(args)
+      end
+
+      def apply_matching_behavior(behaviors, args)
+        behavior = behaviors.detect { |x| !x[:args].nil? && x[:args] == args && x[:body] }
+
+        return behavior[:body].call(args) if behavior
+
+        behavior = behaviors.detect { |x| x[:args].nil? && x[:body] }
+
+        return behavior[:body].call(args) if behavior
+
+        NOOP.call(args)
       end
     end
   end

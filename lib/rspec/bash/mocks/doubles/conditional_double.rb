@@ -10,7 +10,10 @@ module RSpec
           end
 
           def apply(script)
-            script.stub_conditional(@expr, &body)
+            script.stub_conditional(@expr,
+              bodies: bodies,
+              behaviors: behaviors
+            )
           end
 
           def call_count(script)

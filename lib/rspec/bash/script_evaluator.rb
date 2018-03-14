@@ -91,25 +91,38 @@ module RSpec
         fd_out.expect("</rspec_bash::stub>", 1) do |result|
           break if result.nil?
 
-          prompts = result[0].split("\n").reject(&:empty?).reduce([]) do |acc, line|
-            if line == "</rspec_bash::stub>"
-              if acc[-1]
-                acc[-1].merge!(classify_stub(acc[-1][:buffer]))
-              else
-                puts "[WARN] cannot match stub entry: #{line} => #{acc}"
-              end
-            else
-              acc.push({ type: :unknown, buffer: line })
-            end
+          lines = result[0].split("\n").reject(&:empty?)
 
-            acc
+          prompts = lines.each_with_index.reduce([]) do |acc, (line, index)|
+            next acc unless line == "</rspec_bash::stub>"
+
+            message_line_count = lines[index-1].to_i
+            message_bounds = [
+              index - message_line_count - 1,
+              index - 2
+            ]
+
+            message = lines.slice(message_bounds[0]..message_bounds[1])
+
+            target_id = remove_space_guards(message[0])
+            target_args = remove_space_guards(message[1])
+
+            call = classify_stub(target_id, target_args)
+            call[:stacktrace] = (
+              message
+                .slice(2..-1)
+                .map { |x| remove_space_guards(x) }
+                .reject(&:empty?)
+            )
+
+            acc.push(call)
           end
 
           prompts.each do |stub|
             case stub[:type]
             when :conditional
               if !script.has_conditional_stubs? && !Bash.configuration.allow_unstubbed_conditionals
-                fail "conditional expressions are not stubbed!"
+                fail "conditional expressions are not stubbed!\n#{stub[:stacktrace]}"
               end
 
               File.write(bus_file, script.stubbed_conditional(stub[:expr], stub[:args]))
@@ -121,6 +134,14 @@ module RSpec
 
               script.track_conditional_call(stub[:expr], stub[:args])
             when :function
+              if !script.has_stub?(stub[:name])
+                fail(
+                  "#{stub[:name]} is not stubbed!\n\n" +
+                  "Call stack:\n" +
+                  stub[:stacktrace].map { |x| "- #{x}" }.join("\n")
+                )
+              end
+
               routine = stub[:name]
               args    = stub[:args]
               body    = script.stubbed(routine, args)
@@ -134,15 +155,13 @@ module RSpec
 
               script.track_call(routine, args)
             when :unknown
-              STDERR.write "[err] unexpected message from bash: #{stub[:buffer]}"
+              STDERR.write "[err] unexpected message from bash: #{stub.inspect}"
             end
           end
         end
       end
 
-      def classify_stub(command)
-        identifier, args = split_by_first_space(command)
-
+      def classify_stub(identifier, args)
         case identifier
         when CONDITIONAL_EXPR_STUB
           expr, expr_args = split_by_first_space(args)
@@ -183,6 +202,10 @@ module RSpec
           puts e
           puts e.backtrace
         end
+      end
+
+      def remove_space_guards(string)
+        string.gsub(/^[ ]{1}|[ ]$/, '')
       end
     end
   end

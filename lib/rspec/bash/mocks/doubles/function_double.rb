@@ -10,7 +10,12 @@ module RSpec
           end
 
           def apply(script)
-            script.stub(@routine, call_original: call_original, subshell: subshell, &body)
+            script.stub(@routine,
+              call_original: call_original,
+              behaviors: behaviors,
+              subshell: subshell,
+              bodies: bodies
+            )
           end
 
           def call_count(script)
