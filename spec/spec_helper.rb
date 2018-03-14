@@ -21,15 +21,8 @@ require 'json'
 RSpec.configure do |config|
   require 'rspec/bash'
 
-  module RSpecBashSpecSupport
-    def fixture_path(*path)
-      File.join(File.expand_path(File.dirname(__FILE__)), 'fixtures', *path)
-    end
-  end
-
   config.include RSpec::Bash::Mocks::Matchers, type: :bash
   config.include RSpec::Bash::Support, type: :bash
-  config.include RSpecBashSpecSupport, type: :bash
 
   # rspec-expectations config goes here. You can use an alternate
   # assertion/expectation library such as wrong or the stdlib/minitest
